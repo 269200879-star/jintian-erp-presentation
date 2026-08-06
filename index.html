@@ -1,0 +1,1070 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="color-scheme" content="dark">
+  <title>金田ERP转型升级项目方案建议书</title>
+  <style>
+    /* === THEME: sampled from the source consulting deck === */
+    :root {
+      --stage-bg: #081a28;
+      --slide-bg: #ffffff;
+      --accent: #79c343;
+      --accent-deep: #3a8d58;
+      --chrome: rgba(7, 28, 43, 0.88);
+      --chrome-line: rgba(255, 255, 255, 0.18);
+      --ease-professional: cubic-bezier(.2, .8, .2, 1);
+      --panel-width: 390px;
+    }
+
+    * { box-sizing: border-box; }
+
+    /* ===========================================
+       FIXED 16:9 STAGE: MANDATORY BASE STYLES
+       Include this ENTIRE file in every presentation.
+       Slides are authored at 1920×1080 and scaled as a whole.
+       =========================================== */
+
+    /* 1. Lock the browser viewport */
+    html,
+    body {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+        background: var(--stage-bg, #000);
+    }
+
+    /* 2. Full-window deck viewport */
+    .deck-viewport {
+        position: fixed;
+        inset: 0;
+        overflow: hidden;
+        background:
+          radial-gradient(circle at 16% 12%, rgba(121,195,67,.12), transparent 30%),
+          radial-gradient(circle at 84% 86%, rgba(14,115,140,.18), transparent 34%),
+          linear-gradient(145deg, #071924 0%, #0b2532 52%, #06151f 100%);
+    }
+
+    /* 3. Fixed 16:9 design canvas.
+       JavaScript sets transform: translate(...) scale(...). */
+    .deck-stage {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        transform-origin: 0 0;
+        background: var(--slide-bg, #fff);
+    }
+
+    /* 4. Slides stack inside the fixed stage.
+       Content must be laid out at 1920×1080, not reflowed per device. */
+    .slide {
+        position: absolute;
+        inset: 0;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+        display: block;
+        visibility: hidden;
+        opacity: 0;
+        pointer-events: none;
+        background: var(--slide-bg, #fff);
+    }
+
+    .slide.active,
+    .slide.visible {
+        visibility: visible;
+        opacity: 1;
+        pointer-events: auto;
+        z-index: 1;
+    }
+
+    /* 5. Keep media inside authored slide bounds */
+    img,
+    video,
+    canvas,
+    svg {
+        max-width: 100%;
+        max-height: 100%;
+    }
+
+    /* 6. Presentation chrome stays outside the slide design system */
+    .deck-controls {
+        position: fixed;
+        left: 50%;
+        bottom: 22px;
+        transform: translateX(-50%);
+        z-index: 1000;
+    }
+
+    /* 7. Print one fixed-size slide per page */
+    @media print {
+        html,
+        body {
+            width: 1920px;
+            height: auto;
+            overflow: visible;
+            background: #fff;
+        }
+
+        .deck-viewport {
+            position: static;
+            overflow: visible;
+            background: #fff;
+        }
+
+        .deck-stage {
+            position: static;
+            width: auto;
+            height: auto;
+            transform: none !important;
+            background: none;
+        }
+
+        .slide {
+            position: relative;
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            pointer-events: auto !important;
+            width: 1920px;
+            height: 1080px;
+            break-after: page;
+            page-break-after: always;
+        }
+
+        .slide:last-child {
+            break-after: auto;
+            page-break-after: auto;
+        }
+
+        .deck-controls {
+            display: none !important;
+        }
+    }
+
+    /* 8. Reduced motion */
+    @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+            animation-duration: 0.01ms !important;
+            transition-duration: 0.2s !important;
+        }
+    }
+
+    /* === SLIDE RENDERING: preserves source typography and layout exactly === */
+    .slide {
+      transition: opacity 360ms var(--ease-professional), visibility 360ms;
+      box-shadow: 0 40px 110px rgba(0,0,0,.44);
+    }
+    .slide-image {
+      display: block;
+      width: 1920px;
+      height: 1080px;
+      object-fit: cover;
+      user-select: none;
+      -webkit-user-drag: none;
+      transform: scale(1.006);
+      opacity: 0.985;
+      transition: transform 420ms var(--ease-professional), opacity 260ms ease;
+    }
+    .slide.visible .slide-image { transform: scale(1); opacity: 1; }
+
+    /* === CONTENT-AWARE REGION REVEALS ===
+       Each active slide is temporarily rebuilt as cropped visual regions.
+       The regions animate independently, then resolve into the pristine slide. */
+    .motion-layer {
+      position: absolute;
+      inset: 0;
+      z-index: 3;
+      pointer-events: none;
+      overflow: hidden;
+      background: #fff;
+    }
+    .motion-piece {
+      position: absolute;
+      left: var(--x);
+      top: var(--y);
+      width: var(--w);
+      height: var(--h);
+      overflow: hidden;
+      background-image: var(--slide-image);
+      background-size: 1920px 1080px;
+      background-position: calc(-1 * var(--x)) calc(-1 * var(--y));
+      background-repeat: no-repeat;
+      opacity: 0;
+      will-change: opacity, transform, filter, clip-path;
+      animation-duration: var(--duration, 620ms);
+      animation-delay: var(--delay, 0ms);
+      animation-timing-function: var(--ease-professional);
+      animation-fill-mode: both;
+    }
+    .motion-piece[data-effect="rise"] { animation-name: piece-rise; }
+    .motion-piece[data-effect="left"] { animation-name: piece-left; }
+    .motion-piece[data-effect="right"] { animation-name: piece-right; }
+    .motion-piece[data-effect="wipe"] { animation-name: piece-wipe; }
+    .motion-piece[data-effect="focus"] { animation-name: piece-focus; }
+    .motion-piece[data-effect="scale"] { animation-name: piece-scale; }
+    @keyframes piece-rise { from { opacity: 0; transform: translateY(48px); filter: blur(8px); } to { opacity: 1; transform: none; filter: none; } }
+    @keyframes piece-left { from { opacity: 0; transform: translateX(-64px); } to { opacity: 1; transform: none; } }
+    @keyframes piece-right { from { opacity: 0; transform: translateX(64px); } to { opacity: 1; transform: none; } }
+    @keyframes piece-wipe { from { opacity: 1; clip-path: inset(0 100% 0 0); } to { opacity: 1; clip-path: inset(0); } }
+    @keyframes piece-focus { from { opacity: 0; transform: scale(.975); filter: blur(13px); } to { opacity: 1; transform: scale(1); filter: none; } }
+    @keyframes piece-scale { from { opacity: 0; transform: scale(.88); } to { opacity: 1; transform: scale(1); } }
+    .slide.animating > .slide-image { opacity: 0; transition: none; }
+    .slide.animation-settled > .slide-image { opacity: 1; transition: opacity 240ms ease; }
+    body.animations-off .motion-layer { display: none !important; }
+
+    /* === SCHEME A: TRUE POWERPOINT ELEMENT STAGES ===
+       PowerPoint renders cumulative semantic states, so unchanged elements
+       remain perfectly still while the next meaningful group appears. */
+    .semantic-layer {
+      position: absolute;
+      inset: 0;
+      z-index: 4;
+      background: #fff;
+      pointer-events: none;
+      overflow: hidden;
+    }
+    .semantic-frame {
+      position: absolute;
+      inset: 0;
+      width: 1920px;
+      height: 1080px;
+      max-width: none;
+      max-height: none;
+      object-fit: cover;
+      opacity: 0;
+      transform: scale(.996);
+      filter: blur(2px);
+      transition: opacity 520ms var(--ease-professional), transform 720ms var(--ease-professional), filter 520ms ease;
+    }
+    .semantic-frame.show { opacity: 1; transform: scale(1); filter: none; }
+    .semantic-frame.initial { transition: none; }
+    .semantic-stage-label {
+      position: absolute;
+      right: 44px;
+      bottom: 34px;
+      z-index: 5;
+      padding: 10px 15px;
+      border-radius: 10px;
+      background: rgba(6,29,40,.86);
+      color: #e6f5d6;
+      font: 600 15px/1.2 "Microsoft YaHei UI", sans-serif;
+      letter-spacing: .03em;
+      opacity: 0;
+      transform: translateY(8px);
+      transition: opacity 240ms ease, transform 320ms var(--ease-professional);
+    }
+    .semantic-stage-label.show { opacity: 1; transform: none; }
+    body.animations-off .semantic-layer { display: none !important; }
+
+    /* === CINEMATIC CHAPTER TREATMENT === */
+    .slide.cinematic::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background:
+        linear-gradient(115deg, rgba(4,24,31,.20), transparent 36%, transparent 72%, rgba(121,195,67,.10)),
+        linear-gradient(90deg, transparent 0 42%, rgba(255,255,255,.16) 50%, transparent 58%);
+      background-size: 100% 100%, 230% 100%;
+      background-position: center, 180% 0;
+      mix-blend-mode: soft-light;
+    }
+    .slide.cinematic.visible::after { animation: chapter-sheen 1.4s var(--ease-professional) both; }
+    @keyframes chapter-sheen { from { background-position: center, 180% 0; } to { background-position: center, -80% 0; } }
+
+    /* === BRAND HUD === */
+    .brand-hud {
+      position: fixed;
+      top: 22px;
+      left: 26px;
+      z-index: 1250;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: rgba(255,255,255,.86);
+      font: 600 12px/1.2 "Microsoft YaHei UI", sans-serif;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      pointer-events: none;
+      opacity: 0;
+      transform: translateY(-8px);
+      transition: opacity 220ms ease, transform 220ms ease;
+    }
+    body.controls-visible .brand-hud { opacity: 1; transform: translateY(0); }
+    .brand-mark { width: 9px; height: 9px; background: var(--accent); box-shadow: 0 0 18px rgba(121,195,67,.8); transform: rotate(45deg); }
+    .chapter-status { color: rgba(255,255,255,.55); font-weight: 400; letter-spacing: .02em; text-transform: none; }
+
+    /* === PROGRESS: quiet green line echoing the source palette === */
+    .progress-track {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      z-index: 1200;
+      background: rgba(255,255,255,.09);
+    }
+    .progress-fill {
+      width: 0;
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent-deep), var(--accent));
+      box-shadow: 0 0 14px rgba(121,195,67,.42);
+      transition: width 260ms var(--ease-professional);
+    }
+
+    /* === CONTROLS: outside the authored slide canvas === */
+    .deck-controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-height: 44px;
+      padding: 7px 10px;
+      border: 1px solid var(--chrome-line);
+      border-radius: 16px;
+      background: var(--chrome);
+      box-shadow: 0 12px 36px rgba(0,0,0,.28);
+      backdrop-filter: blur(16px);
+      opacity: 0;
+      transform: translate(-50%, 8px);
+      transition: opacity 220ms ease, transform 220ms ease;
+      font: 500 13px/1.2 "Microsoft YaHei UI", sans-serif;
+      color: #fff;
+    }
+    body.controls-visible .deck-controls,
+    .deck-controls:focus-within,
+    .deck-controls:hover { opacity: 1; transform: translate(-50%, 0); }
+    .control-button {
+      width: 34px;
+      height: 30px;
+      border: 0;
+      border-radius: 8px;
+      background: transparent;
+      color: #fff;
+      cursor: pointer;
+      font-size: 18px;
+    }
+    .control-button.active { color: #b8ef82; background: rgba(121,195,67,.16); }
+    .control-button:hover, .control-button:focus-visible { background: rgba(255,255,255,.12); outline: none; }
+    .page-jump {
+      width: 48px;
+      padding: 5px 6px;
+      border: 1px solid rgba(255,255,255,.18);
+      border-radius: 7px;
+      background: rgba(255,255,255,.08);
+      color: #fff;
+      text-align: center;
+      font: inherit;
+    }
+    .page-total { min-width: 30px; color: rgba(255,255,255,.72); }
+    .help {
+      position: fixed;
+      right: 16px;
+      bottom: 14px;
+      z-index: 1001;
+      color: rgba(255,255,255,.62);
+      font: 12px/1.4 "Microsoft YaHei UI", sans-serif;
+      opacity: 0;
+      transition: opacity 220ms ease;
+      pointer-events: none;
+    }
+    body.controls-visible .help { opacity: 1; }
+    @media print { .progress-track, .help { display: none !important; } }
+
+    /* === CHAPTER DRAWER === */
+    .chapter-drawer {
+      position: fixed;
+      inset: 0 auto 0 0;
+      width: var(--panel-width);
+      z-index: 1400;
+      padding: 28px 22px;
+      background: linear-gradient(180deg, rgba(7,28,39,.98), rgba(5,20,29,.98));
+      border-right: 1px solid rgba(255,255,255,.12);
+      box-shadow: 24px 0 80px rgba(0,0,0,.36);
+      color: #fff;
+      transform: translateX(calc(-1 * var(--panel-width)));
+      transition: transform 340ms var(--ease-professional);
+      font-family: "Microsoft YaHei UI", sans-serif;
+      overflow: auto;
+    }
+    body.drawer-open .chapter-drawer { transform: translateX(0); }
+    .drawer-kicker { margin: 0 0 10px; color: #9ad65f; font-size: 12px; letter-spacing: .16em; }
+    .drawer-title { margin: 0 0 26px; font-size: 25px; line-height: 1.35; font-weight: 650; }
+    .chapter-list { display: grid; gap: 7px; }
+    .chapter-link {
+      display: grid;
+      grid-template-columns: 44px 1fr;
+      gap: 12px;
+      width: 100%;
+      padding: 13px 12px;
+      border: 1px solid transparent;
+      border-radius: 11px;
+      background: transparent;
+      color: rgba(255,255,255,.72);
+      text-align: left;
+      cursor: pointer;
+    }
+    .chapter-link:hover { background: rgba(255,255,255,.06); color: #fff; }
+    .chapter-link.active { border-color: rgba(121,195,67,.36); background: rgba(121,195,67,.10); color: #fff; }
+    .chapter-page { color: #8fcf51; font: 700 11px/1.5 ui-monospace, monospace; }
+    .chapter-name { font: 500 14px/1.5 "Microsoft YaHei UI", sans-serif; }
+    .drawer-close { position: absolute; top: 20px; right: 18px; }
+
+    /* === THUMBNAIL OVERVIEW === */
+    .overview {
+      position: fixed;
+      inset: 0;
+      z-index: 1350;
+      padding: 74px 42px 42px;
+      background: rgba(3,15,23,.96);
+      backdrop-filter: blur(22px);
+      color: #fff;
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transition: opacity 260ms ease, visibility 260ms;
+      overflow: auto;
+      font-family: "Microsoft YaHei UI", sans-serif;
+    }
+    body.overview-open .overview { opacity: 1; visibility: visible; pointer-events: auto; }
+    .overview-head { position: fixed; top: 0; left: 0; right: 0; z-index: 2; display: flex; align-items: center; justify-content: space-between; padding: 18px 42px; background: rgba(3,15,23,.92); border-bottom: 1px solid rgba(255,255,255,.1); }
+    .overview-title { margin: 0; font-size: 18px; letter-spacing: .06em; }
+    .overview-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 22px; }
+    .thumb {
+      position: relative;
+      padding: 0;
+      overflow: hidden;
+      aspect-ratio: 16/9;
+      border: 1px solid rgba(255,255,255,.13);
+      border-radius: 10px;
+      background: #fff;
+      box-shadow: 0 14px 40px rgba(0,0,0,.24);
+      cursor: pointer;
+      transition: transform 220ms var(--ease-professional), border-color 220ms ease, box-shadow 220ms ease;
+    }
+    .thumb:hover { transform: translateY(-5px); border-color: rgba(121,195,67,.72); box-shadow: 0 18px 48px rgba(0,0,0,.4); }
+    .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .thumb-number { position: absolute; right: 8px; bottom: 7px; min-width: 30px; padding: 4px 7px; border-radius: 6px; background: rgba(4,18,26,.82); color: #fff; font: 700 11px/1 ui-monospace, monospace; }
+
+    /* === FOCUS ZOOM === */
+    body.zoom-active { cursor: zoom-out; }
+    body.zoom-active .deck-controls, body.zoom-active .brand-hud, body.zoom-active .help { opacity: 0 !important; pointer-events: none; }
+
+    /* === READING MODE === */
+    .mode-toggle { width: auto; min-width: 92px; padding: 0 12px; font-size: 12px; font-weight: 650; }
+    body.reading-mode .deck-controls,
+    body.reading-mode .brand-hud { opacity: 1; transform: translate(-50%, 0); }
+    body.reading-mode .brand-hud { transform: translateY(0); }
+    body.reading-mode .help { opacity: 0; }
+    body.reading-mode .progress-track { height: 4px; }
+    body.reading-mode .slide-image { transition-duration: 180ms; }
+
+    /* === FULL-DECK SEARCH === */
+    .search-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 1500;
+      display: grid;
+      place-items: start center;
+      padding-top: min(12vh, 110px);
+      background: rgba(2,14,21,.82);
+      backdrop-filter: blur(20px);
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transition: opacity 240ms ease, visibility 240ms;
+      font-family: "Microsoft YaHei UI", sans-serif;
+    }
+    body.search-open .search-overlay { opacity: 1; visibility: visible; pointer-events: auto; }
+    .search-panel {
+      width: min(820px, calc(100vw - 36px));
+      max-height: 74vh;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,.14);
+      border-radius: 19px;
+      background: linear-gradient(180deg, rgba(8,34,45,.98), rgba(4,21,30,.98));
+      box-shadow: 0 30px 100px rgba(0,0,0,.48);
+      color: #fff;
+    }
+    .search-head { display: grid; grid-template-columns: 1fr auto; gap: 10px; padding: 16px; border-bottom: 1px solid rgba(255,255,255,.1); }
+    .search-input {
+      width: 100%;
+      padding: 14px 16px;
+      border: 1px solid rgba(255,255,255,.16);
+      border-radius: 11px;
+      outline: none;
+      background: rgba(255,255,255,.07);
+      color: #fff;
+      font: 500 16px/1.3 "Microsoft YaHei UI", sans-serif;
+    }
+    .search-input:focus { border-color: rgba(134,188,37,.7); box-shadow: 0 0 0 3px rgba(134,188,37,.12); }
+    .search-input::placeholder { color: rgba(255,255,255,.42); }
+    .search-meta { padding: 10px 18px; color: rgba(255,255,255,.46); font-size: 12px; }
+    .search-results { max-height: calc(74vh - 120px); overflow: auto; padding: 0 10px 12px; }
+    .search-result {
+      display: grid;
+      grid-template-columns: 58px 1fr;
+      gap: 14px;
+      width: 100%;
+      padding: 13px 12px;
+      border: 0;
+      border-radius: 11px;
+      background: transparent;
+      color: #fff;
+      text-align: left;
+      cursor: pointer;
+    }
+    .search-result:hover, .search-result:focus-visible { outline: none; background: rgba(255,255,255,.07); }
+    .result-page { color: #9bd65f; font: 700 12px/1.5 ui-monospace, monospace; }
+    .result-title { display: block; margin-bottom: 4px; font-size: 14px; line-height: 1.45; }
+    .result-snippet { display: block; color: rgba(255,255,255,.52); font-size: 12px; line-height: 1.55; }
+    .empty-result { padding: 36px 20px; text-align: center; color: rgba(255,255,255,.5); }
+  </style>
+</head>
+<body>
+  <!-- === PROGRESS INDICATOR === -->
+  <div class="progress-track" aria-hidden="true"><div class="progress-fill" id="progressFill"></div></div>
+  <div class="brand-hud"><span class="brand-mark"></span><span>JINTIAN · ERP TRANSFORMATION</span><span class="chapter-status" id="chapterStatus"></span></div>
+
+  <!-- === FIXED PRESENTATION STAGE === -->
+  <div class="deck-viewport">
+    <main class="deck-stage" id="deckStage" aria-label="金田ERP转型升级项目方案建议书"></main>
+  </div>
+
+  <!-- === ACCESSIBLE NAVIGATION CONTROLS === -->
+  <nav class="deck-controls" aria-label="幻灯片导航">
+    <button class="control-button mode-toggle" id="modeButton" type="button" aria-label="切换演讲或阅读模式">演讲模式</button>
+    <button class="control-button" id="searchButton" type="button" aria-label="搜索全部内容" title="搜索（/）">⌕</button>
+    <button class="control-button" id="chaptersButton" type="button" aria-label="章节目录" title="章节目录（M）">☰</button>
+    <button class="control-button" id="overviewButton" type="button" aria-label="缩略图总览" title="缩略图总览（O）">▦</button>
+    <button class="control-button" id="prevButton" type="button" aria-label="上一页">‹</button>
+    <input class="page-jump" id="pageJump" type="number" min="1" max="195" value="1" aria-label="跳转到页码">
+    <span class="page-total">/ 195</span>
+    <button class="control-button" id="nextButton" type="button" aria-label="下一页">›</button>
+    <button class="control-button active" id="animationButton" type="button" aria-label="切换内容动画" title="内容动画（A）">◉</button>
+    <button class="control-button" id="zoomButton" type="button" aria-label="聚焦放大" title="聚焦放大（Z）">⌕</button>
+    <button class="control-button" id="fullscreenButton" type="button" aria-label="全屏">⛶</button>
+  </nav>
+  <div class="help">每页 0–2 步 · 空格 / → 推进 · ← 上一页 · A 动画 · M 目录 · O 总览</div>
+
+  <!-- === CHAPTER NAVIGATION DRAWER === -->
+  <aside class="chapter-drawer" id="chapterDrawer" aria-label="章节目录">
+    <button class="control-button drawer-close" id="drawerClose" type="button" aria-label="关闭目录">×</button>
+    <p class="drawer-kicker">PROJECT NAVIGATOR</p>
+    <h2 class="drawer-title">金田 ERP 转型升级<br>项目方案建议书</h2>
+    <div class="chapter-list" id="chapterList"></div>
+  </aside>
+
+  <!-- === VISUAL SLIDE OVERVIEW === -->
+  <section class="overview" id="overview" aria-label="全部页面缩略图">
+    <div class="overview-head">
+      <h2 class="overview-title">全部页面 · 195</h2>
+      <button class="control-button" id="overviewClose" type="button" aria-label="关闭总览">×</button>
+    </div>
+    <div class="overview-grid" id="overviewGrid"></div>
+  </section>
+
+  <!-- === SEARCH ACROSS ALL 195 SLIDES === -->
+  <section class="search-overlay" id="searchOverlay" aria-label="搜索演示文稿">
+    <div class="search-panel">
+      <div class="search-head">
+        <input class="search-input" id="searchInput" type="search" placeholder="搜索：资金管理、主数据、采购、SAP……" autocomplete="off">
+        <button class="control-button" id="searchClose" type="button" aria-label="关闭搜索">×</button>
+      </div>
+      <div class="search-meta" id="searchMeta">输入关键词，搜索全部 195 页标题与正文</div>
+      <div class="search-results" id="searchResults"></div>
+    </div>
+  </section>
+
+  <script src="search-index.js"></script>
+  <script>
+    /* === SLIDE MANIFEST ===
+       Visual content is rendered directly from the source PPT at 1920×1080.
+       Speaker notes remain preserved in .frontend-slides/extracted/extracted-slides.json. */
+    const SLIDE_COUNT = 195;
+    const CHAPTERS = [
+      { page: 1, name: '封面与项目背景' },
+      { page: 2, name: '团队介绍与整体建议' },
+      { page: 5, name: '数字化管理与总体架构' },
+      { page: 14, name: '流程管理体系设计' },
+      { page: 22, name: '数据管理体系规划' },
+      { page: 28, name: '产销协同与订单管理' },
+      { page: 44, name: '采购与供应商管理' },
+      { page: 54, name: '财务转型与资金规划' },
+      { page: 64, name: 'SAP 与 BW/4 HANA' },
+      { page: 73, name: '项目实施与变革管理' },
+      { page: 81, name: '为什么选择德勤' },
+      { page: 84, name: '核心团队简历' },
+      { page: 91, name: '附录：蓝图与流程方法论' },
+      { page: 105, name: '附录：主数据与财务体系' },
+      { page: 152, name: '附录：产销协同案例' },
+      { page: 162, name: '附录：订单与采购方案' },
+      { page: 181, name: '附录：项目治理与风险' }
+    ];
+    const CINEMATIC_PAGES = new Set([1, 4, 7, 13, 21, 27, 53, 58, 63, 72, 80, 82, 83, 84, 91, 152, 181]);
+    const GRID_PAGES = new Set([11, 15, 18, 22, 25, 30, 33, 34, 35, 36, 42, 45, 50, 55, 59, 60, 61, 69, 70, 71, 96, 97, 100, 103, 111, 119, 121, 122, 127, 130, 132, 133, 136, 140, 145, 154, 156, 158, 159, 160, 165, 170, 174, 178, 190]);
+    const TIMELINE_RANGES = [[16,20], [31,43], [46,52], [73,79], [93,110], [141,151], [161,180], [181,195]];
+    const PROFILE_RANGE = [84, 90];
+    const ZERO_ANIMATION_PAGES = new Set([1,4,7,8,13,21,25,27,31,51,53,58,61,63,72,80,82,83,90,91,111,113,132,133,136,137,138,139,140,147,151,152,179,181,183,185,186,188]);
+    const TWO_ANIMATION_PAGES = new Set([3,11,14,16,23,24,30,33,34,37,38,44,46,52,54,55,56,60,67,76,92,93,94,95,97,98,99,106,108,109,112,115,117,118,119,120,121,123,124,125,128,135,142,154,161,165,166,173,175,176,182,193]);
+
+    /* === SLIDE PRESENTATION CONTROLLER === */
+    class SlidePresentation {
+      constructor() {
+        this.currentSlide = 0;
+        this.stage = document.getElementById('deckStage');
+        this.progress = document.getElementById('progressFill');
+        this.pageJump = document.getElementById('pageJump');
+        this.wheelLocked = false;
+        this.touchStartX = null;
+        this.touchStartY = null;
+        this.controlTimer = null;
+        this.zoomLevel = 1;
+        this.pointerX = .5;
+        this.pointerY = .5;
+        this.buildStage = 0;
+        this.buildReady = false;
+        this.maxBuildStage = 0;
+        this.semanticLayer = null;
+        this.semanticFrames = [];
+        this.mode = localStorage.getItem('jintian-view-mode') === 'reading' ? 'reading' : 'present';
+        this.animationsEnabled = localStorage.getItem('jintian-animations') !== 'off';
+        document.body.classList.toggle('animations-off', !this.animationsEnabled);
+        this.buildSlides();
+        this.slides = [...document.querySelectorAll('.slide')];
+        this.buildChapters();
+        this.buildOverview();
+        this.setupSearch();
+        this.applyMode(false);
+        document.getElementById('animationButton').classList.toggle('active', this.animationsEnabled);
+        this.setupStageScale();
+        this.setupNavigation();
+        this.showSlide(this.readHash(), false);
+        this.showControls();
+      }
+
+      buildSlides() {
+        const fragment = document.createDocumentFragment();
+        for (let i = 1; i <= SLIDE_COUNT; i += 1) {
+          const section = document.createElement('section');
+          section.className = `slide${CINEMATIC_PAGES.has(i) ? ' cinematic' : ''}`;
+          section.setAttribute('aria-label', `第 ${i} 页，共 ${SLIDE_COUNT} 页`);
+          const image = document.createElement('img');
+          image.className = 'slide-image';
+          image.src = `assets/slides/slide-${String(i).padStart(3, '0')}.png`;
+          image.alt = `金田ERP转型升级项目方案建议书第 ${i} 页`;
+          image.draggable = false;
+          if (i > 2) image.loading = 'lazy';
+          section.appendChild(image);
+          fragment.appendChild(section);
+        }
+        this.stage.appendChild(fragment);
+      }
+
+      buildChapters() {
+        const list = document.getElementById('chapterList');
+        CHAPTERS.forEach((chapter, index) => {
+          const nextPage = CHAPTERS[index + 1]?.page || SLIDE_COUNT + 1;
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'chapter-link';
+          button.dataset.start = chapter.page;
+          button.dataset.end = nextPage - 1;
+          button.innerHTML = `<span class="chapter-page">${String(chapter.page).padStart(3, '0')}</span><span class="chapter-name">${chapter.name}</span>`;
+          button.addEventListener('click', () => {
+            this.showSlide(chapter.page - 1);
+            this.toggleDrawer(false);
+          });
+          list.appendChild(button);
+        });
+      }
+
+      buildOverview() {
+        const grid = document.getElementById('overviewGrid');
+        const fragment = document.createDocumentFragment();
+        for (let i = 1; i <= SLIDE_COUNT; i += 1) {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'thumb';
+          button.setAttribute('aria-label', `跳转到第 ${i} 页`);
+          button.innerHTML = `<img src="assets/slides/slide-${String(i).padStart(3, '0')}.png" alt="" loading="lazy"><span class="thumb-number">${i}</span>`;
+          button.addEventListener('click', () => {
+            this.showSlide(i - 1);
+            this.toggleOverview(false);
+          });
+          fragment.appendChild(button);
+        }
+        grid.appendChild(fragment);
+      }
+
+      setupSearch() {
+        this.searchInput = document.getElementById('searchInput');
+        this.searchResults = document.getElementById('searchResults');
+        this.searchMeta = document.getElementById('searchMeta');
+        this.searchIndex = Array.isArray(window.DECK_SEARCH_INDEX) ? window.DECK_SEARCH_INDEX : [];
+        document.getElementById('searchButton').addEventListener('click', () => this.toggleSearch(true));
+        document.getElementById('searchClose').addEventListener('click', () => this.toggleSearch(false));
+        document.getElementById('searchOverlay').addEventListener('click', (event) => {
+          if (event.target.id === 'searchOverlay') this.toggleSearch(false);
+        });
+        this.searchInput.addEventListener('input', () => this.renderSearch(this.searchInput.value));
+      }
+
+      renderSearch(rawQuery) {
+        const query = rawQuery.trim().toLowerCase();
+        this.searchResults.replaceChildren();
+        if (!query) {
+          this.searchMeta.textContent = '输入关键词，搜索全部 195 页标题与正文';
+          return;
+        }
+        const results = this.searchIndex.filter((item) => `${item.title} ${item.text}`.toLowerCase().includes(query)).slice(0, 60);
+        this.searchMeta.textContent = results.length ? `找到 ${results.length} 个结果${results.length === 60 ? '（显示前 60 个）' : ''}` : '没有找到匹配内容';
+        if (!results.length) {
+          const empty = document.createElement('div');
+          empty.className = 'empty-result';
+          empty.textContent = '换一个关键词试试，例如“资金”“主数据”“采购”或“SAP”';
+          this.searchResults.appendChild(empty);
+          return;
+        }
+        const fragment = document.createDocumentFragment();
+        results.forEach((item) => {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'search-result';
+          const page = document.createElement('span');
+          page.className = 'result-page';
+          page.textContent = `P.${String(item.page).padStart(3, '0')}`;
+          const content = document.createElement('span');
+          const title = document.createElement('strong');
+          title.className = 'result-title';
+          title.textContent = item.title || `第 ${item.page} 页`;
+          const snippet = document.createElement('span');
+          snippet.className = 'result-snippet';
+          const source = item.text || item.title || '';
+          const matchAt = source.toLowerCase().indexOf(query);
+          const start = Math.max(0, matchAt - 34);
+          snippet.textContent = `${start ? '…' : ''}${source.slice(start, start + 110)}${source.length > start + 110 ? '…' : ''}`;
+          content.append(title, snippet);
+          button.append(page, content);
+          button.addEventListener('click', () => {
+            this.showSlide(item.page - 1);
+            this.toggleSearch(false);
+          });
+          fragment.appendChild(button);
+        });
+        this.searchResults.appendChild(fragment);
+      }
+
+      setupStageScale() {
+        const scale = () => this.applyStageTransform();
+        this.applyStageTransform = () => {
+          const base = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
+          const factor = base * this.zoomLevel;
+          const overflowX = Math.max(0, 1920 * factor - window.innerWidth);
+          const overflowY = Math.max(0, 1080 * factor - window.innerHeight);
+          const x = overflowX ? -overflowX * this.pointerX : (window.innerWidth - 1920 * factor) / 2;
+          const y = overflowY ? -overflowY * this.pointerY : (window.innerHeight - 1080 * factor) / 2;
+          this.stage.style.transform = `translate(${x}px, ${y}px) scale(${factor})`;
+        };
+        scale();
+        window.addEventListener('resize', scale, { passive: true });
+      }
+
+      setupNavigation() {
+        document.getElementById('prevButton').addEventListener('click', () => this.previous());
+        document.getElementById('nextButton').addEventListener('click', () => this.next());
+        document.getElementById('fullscreenButton').addEventListener('click', () => this.toggleFullscreen());
+        document.getElementById('chaptersButton').addEventListener('click', () => this.toggleDrawer());
+        document.getElementById('drawerClose').addEventListener('click', () => this.toggleDrawer(false));
+        document.getElementById('overviewButton').addEventListener('click', () => this.toggleOverview());
+        document.getElementById('overviewClose').addEventListener('click', () => this.toggleOverview(false));
+        document.getElementById('zoomButton').addEventListener('click', () => this.toggleZoom());
+        document.getElementById('animationButton').addEventListener('click', () => this.toggleAnimations());
+        document.getElementById('modeButton').addEventListener('click', () => this.toggleMode());
+        this.pageJump.addEventListener('change', () => this.showSlide(Number(this.pageJump.value) - 1));
+
+        document.addEventListener('keydown', (event) => {
+          if (event.target.matches('input, textarea')) {
+            if (event.key === 'Escape') this.toggleSearch(false);
+            return;
+          }
+          const nextKeys = ['ArrowRight', 'ArrowDown', 'PageDown', ' '];
+          const previousKeys = ['ArrowLeft', 'ArrowUp', 'PageUp'];
+          if (nextKeys.includes(event.key)) { event.preventDefault(); this.next(); }
+          else if (previousKeys.includes(event.key)) { event.preventDefault(); this.previous(); }
+          else if (event.key === 'Home') { event.preventDefault(); this.showSlide(0); }
+          else if (event.key === 'End') { event.preventDefault(); this.showSlide(SLIDE_COUNT - 1); }
+          else if (event.key.toLowerCase() === 'f') { event.preventDefault(); this.toggleFullscreen(); }
+          else if (event.key.toLowerCase() === 'm') { event.preventDefault(); this.toggleDrawer(); }
+          else if (event.key.toLowerCase() === 'o' || event.key === 'Escape' && document.body.classList.contains('overview-open')) { event.preventDefault(); this.toggleOverview(); }
+          else if (event.key.toLowerCase() === 'z') { event.preventDefault(); this.toggleZoom(); }
+          else if (event.key.toLowerCase() === 'a') { event.preventDefault(); this.toggleAnimations(); }
+          else if (event.key === '/') { event.preventDefault(); this.toggleSearch(true); }
+          else if (event.key.toLowerCase() === 'v') { event.preventDefault(); this.toggleMode(); }
+          else if (event.key === 'Escape') { this.toggleSearch(false); this.toggleDrawer(false); this.toggleZoom(false); }
+        });
+
+        document.addEventListener('wheel', (event) => {
+          if (this.wheelLocked || Math.abs(event.deltaY) < 18) return;
+          this.wheelLocked = true;
+          event.deltaY > 0 ? this.next() : this.previous();
+          window.setTimeout(() => { this.wheelLocked = false; }, 520);
+        }, { passive: true });
+
+        document.addEventListener('touchstart', (event) => {
+          const touch = event.changedTouches[0];
+          this.touchStartX = touch.clientX;
+          this.touchStartY = touch.clientY;
+        }, { passive: true });
+        document.addEventListener('touchend', (event) => {
+          if (this.touchStartX === null) return;
+          const touch = event.changedTouches[0];
+          const dx = touch.clientX - this.touchStartX;
+          const dy = touch.clientY - this.touchStartY;
+          if (Math.abs(dx) > 48 && Math.abs(dx) > Math.abs(dy)) dx < 0 ? this.next() : this.previous();
+          this.touchStartX = this.touchStartY = null;
+        }, { passive: true });
+
+        document.addEventListener('mousemove', (event) => {
+          this.pointerX = event.clientX / window.innerWidth;
+          this.pointerY = event.clientY / window.innerHeight;
+          if (this.zoomLevel > 1) this.applyStageTransform();
+          this.showControls();
+        }, { passive: true });
+        document.addEventListener('click', (event) => {
+          if (event.target.closest('.deck-controls, .chapter-drawer, .overview')) return;
+          if (document.body.classList.contains('zoom-active')) { this.toggleZoom(false); return; }
+          if (event.clientX > window.innerWidth * 0.72) this.next();
+          else if (event.clientX < window.innerWidth * 0.28) this.previous();
+        });
+        window.addEventListener('hashchange', () => this.showSlide(this.readHash(), false));
+      }
+
+      readHash() {
+        const page = Number(location.hash.replace('#', ''));
+        return Number.isFinite(page) && page > 0 ? page - 1 : 0;
+      }
+
+      showSlide(index, updateHash = true) {
+        const bounded = Math.max(0, Math.min(index, SLIDE_COUNT - 1));
+        this.currentSlide = bounded;
+        this.slides.forEach((slide, i) => {
+          const selected = i === bounded;
+          slide.classList.toggle('active', selected);
+          slide.classList.toggle('visible', selected);
+          slide.setAttribute('aria-hidden', String(!selected));
+        });
+        this.pageJump.value = String(bounded + 1);
+        this.progress.style.width = `${((bounded + 1) / SLIDE_COUNT) * 100}%`;
+        this.updateChapterState(bounded + 1);
+        document.title = `${bounded + 1}/${SLIDE_COUNT} · 金田ERP转型升级项目方案建议书`;
+        if (updateHash) history.replaceState(null, '', `#${bounded + 1}`);
+        this.preloadNearby();
+        this.animateSlide(bounded + 1);
+        this.showControls();
+      }
+
+      preloadNearby() {
+        for (const offset of [-1, 1, 2]) {
+          const image = this.slides[this.currentSlide + offset]?.querySelector('img');
+          if (image) image.loading = 'eager';
+        }
+      }
+
+      previous() { this.showSlide(this.currentSlide - 1); }
+      next() {
+        if (this.animationsEnabled && this.semanticLayer) {
+          if (!this.buildReady) return;
+          if (this.buildStage < this.maxBuildStage) {
+            this.buildStage += 1;
+            this.semanticFrames.forEach((frame, index) => {
+              frame.classList.remove('initial');
+              frame.classList.toggle('show', index === this.buildStage);
+            });
+            return;
+          }
+          if (this.buildStage === this.maxBuildStage) {
+            this.buildStage = this.maxBuildStage + 1;
+            this.semanticLayer.remove();
+            this.semanticLayer = null;
+            this.slides[this.currentSlide].classList.remove('animating');
+            return;
+          }
+        }
+        this.showSlide(this.currentSlide + 1);
+      }
+
+      updateChapterState(page) {
+        let current = CHAPTERS[0];
+        CHAPTERS.forEach((chapter) => { if (page >= chapter.page) current = chapter; });
+        document.getElementById('chapterStatus').textContent = `· ${current.name}`;
+        document.querySelectorAll('.chapter-link').forEach((link) => {
+          const active = page >= Number(link.dataset.start) && page <= Number(link.dataset.end);
+          link.classList.toggle('active', active);
+        });
+      }
+
+      toggleDrawer(force) {
+        const open = typeof force === 'boolean' ? force : !document.body.classList.contains('drawer-open');
+        document.body.classList.toggle('drawer-open', open);
+        if (open) this.toggleOverview(false);
+      }
+
+      toggleOverview(force) {
+        const open = typeof force === 'boolean' ? force : !document.body.classList.contains('overview-open');
+        document.body.classList.toggle('overview-open', open);
+        if (open) { this.toggleDrawer(false); this.toggleZoom(false); }
+      }
+
+      toggleSearch(force) {
+        const open = typeof force === 'boolean' ? force : !document.body.classList.contains('search-open');
+        document.body.classList.toggle('search-open', open);
+        if (open) {
+          this.toggleDrawer(false);
+          this.toggleOverview(false);
+          window.setTimeout(() => this.searchInput.focus(), 40);
+        } else {
+          this.searchInput.blur();
+        }
+      }
+
+      toggleMode() {
+        this.mode = this.mode === 'present' ? 'reading' : 'present';
+        this.applyMode(true);
+      }
+
+      applyMode(rebuild = true) {
+        const reading = this.mode === 'reading';
+        document.body.classList.toggle('reading-mode', reading);
+        const button = document.getElementById('modeButton');
+        button.textContent = reading ? '阅读模式' : '演讲模式';
+        button.classList.toggle('active', reading);
+        localStorage.setItem('jintian-view-mode', this.mode);
+        document.querySelectorAll('.motion-layer, .semantic-layer').forEach((layer) => layer.remove());
+        this.semanticLayer = null;
+        this.semanticFrames = [];
+        if (rebuild && !reading) this.animateSlide(this.currentSlide + 1);
+      }
+
+      toggleZoom(force) {
+        const active = typeof force === 'boolean' ? force : this.zoomLevel === 1;
+        this.zoomLevel = active ? 1.32 : 1;
+        document.body.classList.toggle('zoom-active', active);
+        document.getElementById('zoomButton').classList.toggle('active', active);
+        this.applyStageTransform();
+      }
+
+      toggleAnimations() {
+        this.animationsEnabled = !this.animationsEnabled;
+        document.body.classList.toggle('animations-off', !this.animationsEnabled);
+        document.getElementById('animationButton').classList.toggle('active', this.animationsEnabled);
+        localStorage.setItem('jintian-animations', this.animationsEnabled ? 'on' : 'off');
+        if (this.animationsEnabled) this.animateSlide(this.currentSlide + 1);
+      }
+
+      motionProfile(page) {
+        if (CINEMATIC_PAGES.has(page)) return 'hero';
+        if (page >= PROFILE_RANGE[0] && page <= PROFILE_RANGE[1]) return 'portrait';
+        if (GRID_PAGES.has(page)) return 'grid';
+        if (TIMELINE_RANGES.some(([start, end]) => page >= start && page <= end)) return 'rows';
+        return page % 2 === 0 ? 'columns' : 'rows';
+      }
+
+      motionRegions(profile) {
+        const region = (x, y, w, h, effect, delay, duration = 620) => ({ x, y, w, h, effect, delay, duration });
+        if (profile === 'hero') return [
+          region(0, 0, 1920, 1080, 'focus', 40, 960)
+        ];
+        if (profile === 'portrait') return [
+          region(0, 0, 1920, 190, 'wipe', 20),
+          region(0, 190, 760, 890, 'scale', 170, 720),
+          region(760, 190, 1160, 360, 'right', 290),
+          region(760, 550, 1160, 530, 'rise', 430)
+        ];
+        if (profile === 'grid') return [
+          region(0, 0, 1920, 190, 'wipe', 10),
+          region(0, 190, 640, 445, 'rise', 130),
+          region(640, 190, 640, 445, 'rise', 230),
+          region(1280, 190, 640, 445, 'rise', 330),
+          region(0, 635, 960, 445, 'left', 430),
+          region(960, 635, 960, 445, 'right', 530)
+        ];
+        if (profile === 'columns') return [
+          region(0, 0, 1920, 190, 'wipe', 10),
+          region(0, 190, 640, 890, 'left', 150),
+          region(640, 190, 640, 890, 'rise', 290),
+          region(1280, 190, 640, 890, 'right', 430)
+        ];
+        return [
+          region(0, 0, 1920, 190, 'wipe', 10),
+          region(0, 190, 1920, 290, 'rise', 150),
+          region(0, 480, 1920, 300, 'rise', 300),
+          region(0, 780, 1920, 300, 'rise', 450)
+        ];
+      }
+
+      animateSlide(page) {
+        document.querySelectorAll('.motion-layer, .semantic-layer').forEach((layer) => layer.remove());
+        this.slides.forEach((slide) => slide.classList.remove('animating', 'animation-settled'));
+        this.semanticLayer = null;
+        this.semanticFrames = [];
+        this.buildStage = 0;
+        this.buildReady = false;
+        this.maxBuildStage = 0;
+        if (this.mode === 'reading' || !this.animationsEnabled || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+        const animationCount = ZERO_ANIMATION_PAGES.has(page) ? 0 : (TWO_ANIMATION_PAGES.has(page) ? 2 : 1);
+        if (animationCount === 0) return;
+
+        const slide = this.slides[page - 1];
+        const pageKey = String(page).padStart(3, '0');
+        const layer = document.createElement('div');
+        layer.className = 'semantic-layer';
+        const stageIds = animationCount === 2 ? [0, 2] : [1];
+        const frames = stageIds.map((stage) => {
+          const frame = document.createElement('img');
+          frame.className = 'semantic-frame';
+          frame.src = `assets/semantic-a/slide-${pageKey}/stage-${stage}.png`;
+          frame.alt = '';
+          layer.appendChild(frame);
+          return frame;
+        });
+        slide.classList.add('animating');
+        slide.appendChild(layer);
+        this.semanticLayer = layer;
+        this.semanticFrames = frames;
+        this.maxBuildStage = frames.length - 1;
+        Promise.all(frames.map((frame) => new Promise((resolve) => {
+          if (frame.complete) resolve();
+          else { frame.addEventListener('load', resolve, { once: true }); frame.addEventListener('error', resolve, { once: true }); }
+        }))).then(() => {
+          if (slide !== this.slides[this.currentSlide]) return;
+          frames[0].classList.add('show', 'initial');
+          this.buildStage = 0;
+          this.buildReady = true;
+        });
+      }
+
+      async toggleFullscreen() {
+        if (!document.fullscreenElement) await document.documentElement.requestFullscreen?.();
+        else await document.exitFullscreen?.();
+      }
+
+      showControls() {
+        document.body.classList.add('controls-visible');
+        window.clearTimeout(this.controlTimer);
+        this.controlTimer = window.setTimeout(() => document.body.classList.remove('controls-visible'), 1800);
+      }
+    }
+
+    new SlidePresentation();
+  </script>
+</body>
+</html>
